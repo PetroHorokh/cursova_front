@@ -129,7 +129,7 @@ const Record = (props) => {
     const handleDeleteClick = (id) => () => {
         setRows(rows.filter((row) => row.id !== id));
 
-        fetch('http://localhost:8080/record/delete/' + id, {
+        fetch('https://cursova-spring-app-20240529185433.azuremicroservices.io/record/delete/' + id, {
             method: 'Delete',
             headers: {
                 Accept: 'application/json',
