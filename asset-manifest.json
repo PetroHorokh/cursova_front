@@ -1,13 +1,13 @@
 {
   "files": {
     "main.css": "/cursova_front/static/css/main.6d10dd4c.css",
-    "main.js": "/cursova_front/static/js/main.d1df15de.js",
+    "main.js": "/cursova_front/static/js/main.be1e4b50.js",
     "index.html": "/cursova_front/index.html",
     "main.6d10dd4c.css.map": "/cursova_front/static/css/main.6d10dd4c.css.map",
-    "main.d1df15de.js.map": "/cursova_front/static/js/main.d1df15de.js.map"
+    "main.be1e4b50.js.map": "/cursova_front/static/js/main.be1e4b50.js.map"
   },
   "entrypoints": [
     "static/css/main.6d10dd4c.css",
-    "static/js/main.d1df15de.js"
+    "static/js/main.be1e4b50.js"
   ]
 }
