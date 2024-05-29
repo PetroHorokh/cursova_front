@@ -1,51 +1,135 @@
-import {styled} from '@mui/system';
+import Box from '@mui/material/Box';
+import EditIcon from '@mui/icons-material/Edit';
+import DeleteIcon from '@mui/icons-material/DeleteOutlined';
+import SaveIcon from '@mui/icons-material/Save';
+import CancelIcon from '@mui/icons-material/Close';
 import {
-    TablePagination,
-    tablePaginationClasses as classes,
-} from '@mui/base/TablePagination';
-import FirstPageRoundedIcon from '@mui/icons-material/FirstPageRounded';
-import LastPageRoundedIcon from '@mui/icons-material/LastPageRounded';
-import ChevronLeftRoundedIcon from '@mui/icons-material/ChevronLeftRounded';
-import ChevronRightRoundedIcon from '@mui/icons-material/ChevronRightRounded';
-import {useState} from "react";
-import {Button} from "react-bootstrap";
+    DataGrid,
+    GridActionsCellItem,
+    GridRowEditStopReasons,
+    GridRowModes,
+} from '@mui/x-data-grid';
 import './record.css';
 import * as React from "react";
-import PutRecord from "../PutRecord/put_record";
+import {useEffect, useMemo, useRef} from "react";
 
 const Record = (props) => {
-    const [page, setPage] = useState(0);
-    const [rowsPerPage, setRowsPerPage] = useState(5);
-    const [showUpdateRecord, setShowUpdateRecord] = useState(false);
-    const [rowToShow, setRowToShow] = useState(0);
 
-    const handleUpdateRecordClose = () => {
-        setShowUpdateRecord(false);
-        setRowToShow(0);
+    const columns = [
+        {
+            field: 'title',
+            headerName: 'Title',
+            width: 100,
+            editable: true,
+        },
+        {
+            field: 'text',
+            headerName: 'Text',
+            width: 100,
+            editable: true,
+        },
+        {
+            field: 'timestamp',
+            headerName: 'Date',
+            width: 150,
+            editable: false,
+        },
+        {
+            field: 'actions',
+            type: 'actions',
+            headerName: 'Actions',
+            width: 100,
+            cellClassName: 'actions',
+            getActions: ({ id }) => {
+                const isInEditMode = rowModesModel[id]?.mode === GridRowModes.Edit;
+
+                if (isInEditMode) {
+                    return [
+                        <GridActionsCellItem
+                            icon={<SaveIcon />}
+                            label="Save"
+                            sx={{
+                                color: 'primary.main',
+                            }}
+                            onClick={handleSaveClick(id)}
+                        />,
+                        <GridActionsCellItem
+                            icon={<CancelIcon />}
+                            label="Cancel"
+                            className="textPrimary"
+                            onClick={handleCancelClick(id)}
+                            color="inherit"
+                        />,
+                    ];
+                }
+
+                return [
+                    // <GridActionsCellItem
+                    //     icon={<EditIcon />}
+                    //     label="Edit"
+                    //     className="textPrimary"
+                    //     onClick={handleEditClick(id)}
+                    //     color="inherit"
+                    // />,
+                    <GridActionsCellItem
+                        icon={<DeleteIcon />}
+                        label="Delete"
+                        onClick={handleDeleteClick(id)}
+                        color="inherit"
+                    />,
+                ];
+            },
+        },
+    ];
+
+    const [rows, setRows] = React.useState(props.records);
+    const [rowModesModel, setRowModesModel] = React.useState({});
+
+    useEffect(() => {
+        setRows(props.records);
+    }, [props.records]);
+
+    const handleRowEditStop = (params, event) => {
+        if (params.reason === GridRowEditStopReasons.rowFocusOut) {
+            event.defaultMuiPrevented = true;
+        }
     };
-    const handleUpdateRecordShow = () => {
-        setShowUpdateRecord(true);
-    }
 
-    const emptyRows =
-        page > 0 ? Math.max(0, (1 + page) * rowsPerPage - props.records.length) : 0;
-
-    const handleChangePage = (
-        event: React.MouseEvent<HTMLButtonElement> | null,
-        newPage: number,
-    ) => {
-        setPage(newPage);
+    const handleEditClick = (id) => () => {
+        setRowModesModel({ ...rowModesModel, [id]: { mode: GridRowModes.Edit } });
     };
 
-    const handleChangeRowsPerPage = (
-        event: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>,
-    ) => {
-        setRowsPerPage(parseInt(event.target.value, 10));
-        setPage(0);
+    const handleSaveClick = (updated, original) => () => {
+        console.log(updated)
+
+        // fetch('http://localhost:8080/record/put/' + updated, {
+        //     method: 'Put',
+        //     headers: {
+        //         Accept: 'application/json',
+        //         'Content-Type': 'application/json',
+        //     },
+        //     body: JSON.stringify({
+        //         RecordId: updated.recordId,
+        //         SectionId: updated.sectionId,
+        //         Title: updated.title,
+        //         Text: updated.text,
+        //         Timestamp: updated.timestamp
+        //     }),
+        // })
+        //     .then(
+        //         () => {
+        //             props.loadRecords();
+        //         },
+        //         (error) => {
+        //             console.log(error);
+        //         }
+        //     )
     };
 
-    const deleteRecord = (id) => {
-        fetch('https://cursova-spring-app-20240529185433.azuremicroservices.io/record/delete/' + id, {
+    const handleDeleteClick = (id) => () => {
+        setRows(rows.filter((row) => row.id !== id));
+
+        fetch('http://localhost:8080/record/delete/' + id, {
             method: 'Delete',
             headers: {
                 Accept: 'application/json',
@@ -54,232 +138,62 @@ const Record = (props) => {
         })
             .then(
                 () => {
-                    props.loadRecords()
+                    props.loadRecords();
                 },
                 (error) => {
-                    console.log(error)
+                    console.log(error);
                 }
             )
-    }
+    };
+
+    const handleCancelClick = (id) => () => {
+        setRowModesModel({
+            ...rowModesModel,
+            [id]: { mode: GridRowModes.View, ignoreModifications: true },
+        });
+
+        const editedRow = rows.find((row) => row.id === id);
+        if (editedRow.isNew) {
+            setRows(rows.filter((row) => row.id !== id));
+        }
+    };
+
+    const processRowUpdate = (newRow) => {
+        const updatedRow = { ...newRow, isNew: false };
+        setRows(rows.map((row) => (row.id === newRow.id ? updatedRow : row)));
+        return updatedRow;
+    };
+
+    const handleRowModesModelChange = (newRowModesModel) => {
+        setRowModesModel(newRowModesModel);
+    };
 
     return (
-        <Root sx={{width: 500, maxWidth: '100%'}}>
-            <table aria-label="custom pagination table">
-                <thead>
-                <tr>
-                    <th>Title</th>
-                    <th>Text</th>
-                    <th>Date</th>
-                    <th>Action</th>
-                </tr>
-                </thead>
-                <tbody>
-                {(rowsPerPage > 0
-                        ? props.records.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
-                        : props.records
-                ).map((row, i) => (
-                    <tr key={row.title}>
-                        <td>{row.title}</td>
-                        <td style={{width: 120}} align="right">
-                            {row.text}
-                        </td>
-                        <td style={{width: 120}} align="right">
-                            {row.timestamp}
-                        </td>
-                        <td style={{width: 120}} className={'action-column'}>
-                            <Button variant="dark"
-                                    onClick={function () {
-                                        handleUpdateRecordShow();
-                                        setRowToShow(i);
-                                    }}>
-                                Update
-                            </Button>
-                            <PutRecord loadRecords={props.loadRecords} section={props.section} show={showUpdateRecord}
-                                       handleClose={handleUpdateRecordClose} ind={rowToShow} records={props.records}/>
-                            <Button variant="dark"
-                                    onClick={function (){deleteRecord(row.recordId);}}>
-                                Delete
-                            </Button>
-                        </td>
-                    </tr>
-                ))}
-
-                {emptyRows > 0 && (
-                    <tr style={{height: 34 * emptyRows}}>
-                        <td colSpan={3} aria-hidden/>
-                    </tr>
-                )}
-                </tbody>
-                <tfoot>
-                <tr>
-                    <CustomTablePagination
-                        rowsPerPageOptions={[5, 10, 25, {label: 'All', value: -1}]}
-                        colSpan={3}
-                        count={props.records.length}
-                        rowsPerPage={rowsPerPage}
-                        page={page}
-                        slotProps={{
-                            select: {
-                                'aria-label': 'rows per page',
-                            },
-                            actions: {
-                                showFirstButton: true,
-                                showLastButton: true,
-                                slots: {
-                                    firstPageIcon: FirstPageRoundedIcon,
-                                    lastPageIcon: LastPageRoundedIcon,
-                                    nextPageIcon: ChevronRightRoundedIcon,
-                                    backPageIcon: ChevronLeftRoundedIcon,
-                                },
-                            },
-                        }}
-                        onPageChange={handleChangePage}
-                        onRowsPerPageChange={handleChangeRowsPerPage}
-                    />
-                </tr>
-                </tfoot>
-            </table>
-        </Root>
+        <Box
+            sx={{
+                height: 400,
+                width: '100%',
+                '& .actions': {
+                    color: 'text.secondary',
+                },
+                '& .textPrimary': {
+                    color: 'text.primary',
+                },
+            }}
+        >
+            <DataGrid
+                getRowId={(row) => row.recordId}
+                rows={rows}
+                columns={columns}
+                editMode="row"
+                rowModesModel={rowModesModel}
+                onRowModesModelChange={handleRowModesModelChange}
+                onRowEditStop={handleRowEditStop}
+                processRowUpdate={processRowUpdate}
+                experimentalFeatures={{ newEditingApi: true }}
+            />
+        </Box>
     );
 }
-
-const blue = {
-    50: '#F0F7FF',
-    200: '#A5D8FF',
-    400: '#3399FF',
-    900: '#003A75',
-};
-
-const grey = {
-    50: '#F3F6F9',
-    100: '#E5EAF2',
-    200: '#DAE2ED',
-    300: '#C7D0DD',
-    400: '#B0B8C4',
-    500: '#9DA8B7',
-    600: '#6B7A90',
-    700: '#434D5B',
-    800: '#303740',
-    900: '#1C2025',
-};
-
-const Root = styled('div')(
-    ({theme}) => `
-  border-radius: 12px;
-  border: 1px solid ${theme.palette.mode === 'dark' ? grey[800] : grey[200]};
-  overflow: clip;
-
-  table {
-    font-family: 'IBM Plex Sans', sans-serif;
-    font-size: 0.875rem;
-    border-collapse: collapse;
-    border: none;
-    width: 500px;
-    margin: -1px;
-  }
-
-  td,
-  th {
-    border: 1px solid ${theme.palette.mode === 'dark' ? grey[800] : grey[200]};
-    text-align: left;
-    padding: 8px;
-  }
-
-  `,
-);
-
-const CustomTablePagination = styled(TablePagination)(
-    ({theme}) => `
-  & .${classes.spacer} {
-    display: none;
-  }
-
-  & .${classes.toolbar}  {
-    display: flex;
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 8px;
-    padding: 4px 0;
-
-    @media (min-width: 768px) {
-      flex-direction: row;
-      align-items: center;
-    }
-  }
-
-  & .${classes.selectLabel} {
-    margin: 0;
-  }
-
-  & .${classes.select}{
-    font-family: 'IBM Plex Sans', sans-serif;
-    padding: 2px 0 2px 4px;
-    border: 1px solid ${theme.palette.mode === 'dark' ? grey[800] : grey[200]};
-    border-radius: 6px; 
-    background-color: transparent;
-    color: ${theme.palette.mode === 'dark' ? grey[300] : grey[900]};
-    transition: all 100ms ease;
-
-    &:hover {
-      background-color: ${theme.palette.mode === 'dark' ? grey[800] : grey[50]};
-      border-color: ${theme.palette.mode === 'dark' ? grey[600] : grey[300]};
-    }
-
-    &:focus {
-      outline: 3px solid ${theme.palette.mode === 'dark' ? blue[400] : blue[200]};
-      border-color: ${blue[400]};
-    }
-  }
-
-  & .${classes.displayedRows} {
-    margin: 0;
-
-    @media (min-width: 768px) {
-      margin-left: auto;
-    }
-  }
-
-  & .${classes.actions} {
-    display: flex;
-    gap: 6px;
-    border: transparent;
-    text-align: center;
-  }
-
-  & .${classes.actions} > button {
-    display: flex;
-    align-items: center;
-    padding: 0;
-    border: transparent;
-    border-radius: 50%;
-    background-color: transparent;
-    border: 1px solid ${theme.palette.mode === 'dark' ? grey[800] : grey[200]};
-    color: ${theme.palette.mode === 'dark' ? grey[300] : grey[900]};
-    transition: all 120ms ease;
-
-    > svg {
-      font-size: 22px;
-    }
-
-    &:hover {
-      background-color: ${theme.palette.mode === 'dark' ? grey[800] : grey[50]};
-      border-color: ${theme.palette.mode === 'dark' ? grey[600] : grey[300]};
-    }
-
-    &:focus {
-      outline: 3px solid ${theme.palette.mode === 'dark' ? blue[400] : blue[200]};
-      border-color: ${blue[400]};
-    }
-
-    &:disabled {
-      opacity: 0.3;
-      &:hover {
-        border: 1px solid ${theme.palette.mode === 'dark' ? grey[800] : grey[200]};
-        background-color: transparent;
-      }
-    }
-  }
-  `,
-);
 
 export default Record;
